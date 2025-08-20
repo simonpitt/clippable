@@ -219,7 +219,7 @@
 
             createNewFolder(userId, folderName) {
                 const foldersRef = collection(this.db, 'users', userId, 'folders');
-                addDoc(foldersRef, { name: folderName, isExpanded: false });
+                return addDoc(foldersRef, { name: folderName, isExpanded: false });
             }
 
             deleteFolder(userId, folderId) {
