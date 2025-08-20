@@ -205,7 +205,7 @@
             }
 
             updateClip(userId, clipId, clipData) {
-                return updateDoc(doc(this.db, 'users', userId, 'clips', clipId), { ...clipData, timestamp: serverTimestamp() });
+                return updateDoc(doc(this.db, 'users', userId, 'clips', clipId), clipData);
             }
 
             deleteClip(userId, clipId) {
@@ -408,21 +408,42 @@
                 
                 folderHeader.append(folderIcon, folderName, toggleIcon);
 
-                const folderDeleteBtn = document.createElement('button');
-                folderDeleteBtn.className = 'absolute top-1/2 -translate-y-1/2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors z-10';
+                const optionsButton = document.createElement('button');
+                optionsButton.className = 'absolute top-1/2 -translate-y-1/2 right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors z-10';
+                optionsButton.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
+
+                const dropdownMenu = document.createElement('div');
+                dropdownMenu.className = 'folder-options-menu absolute top-full right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 hidden';
+                
+                const deleteOption = document.createElement('button');
+                deleteOption.className = 'w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2';
+                
+                const deleteIcon = document.createElement('i');
+                deleteIcon.className = 'fa-solid fa-trash-can';
+                
+                const deleteText = document.createElement('span');
+                deleteText.textContent = 'Delete';
+
+                deleteOption.append(deleteIcon, deleteText);
+
 
                 if (folder.id === 'default_clips') {
-                    folderDeleteBtn.classList.add('invisible', 'pointer-events-none');
+                    optionsButton.classList.add('invisible', 'pointer-events-none');
                 } else {
-                    folderDeleteBtn.addEventListener('click', e => {
+                    optionsButton.addEventListener('click', e => {
                         e.stopPropagation();
-                        this.showModal('Delete Folder', `Are you sure you want to delete the folder "${folder.name}"? All clips inside will be moved to the "Clips" folder.`, 'Delete Folder', () => this.app.deleteFolder(folder.id));
+                        dropdownMenu.classList.toggle('hidden');
+                    });
+
+                    deleteOption.addEventListener('click', e => {
+                        e.stopPropagation();
+                        this.showModal('Delete Folder', `Are you sure you want to delete the folder "${folder.name}"? All clips inside will be moved to the "Clips" folder.`, 'Delete', () => this.app.deleteFolder(folder.id));
+                        dropdownMenu.classList.add('hidden');
                     });
                 }
-                
-                folderDeleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
 
-                folderHeaderWrapper.append(folderHeader, folderDeleteBtn);
+                dropdownMenu.appendChild(deleteOption);
+                folderHeaderWrapper.append(folderHeader, optionsButton, dropdownMenu);
 
                 const clipContainer = document.createElement('div');
                 clipContainer.className = 'overflow-hidden transition-all duration-300 ease-in-out';
@@ -554,6 +575,11 @@
                 this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
                 this.appLogo.addEventListener('click', this.startNewClip.bind(this));
                 this.deleteClipBtn.addEventListener('click', () => this.showDeleteClipModal());
+                document.addEventListener('click', () => {
+                    document.querySelectorAll('.folder-options-menu').forEach(menu => {
+                        menu.classList.add('hidden');
+                    });
+                });
             }
 
             handleAuthStateChange(user) {
