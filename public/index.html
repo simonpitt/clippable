@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en" class="overscroll-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clippable</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .branding-primary {
+            background-color: #c11616;
+        }
+        .branding-text-primary {
+            color: #c11616;
+        }
+        .branding-secondary {
+            background-color: #f7b644;
+        }
+        .branding-text-secondary {
+            color: #f7b644;
+        }
+        .animate-pop {
+            animation: pop 0.3s ease-in-out;
+        }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-dvh overscroll-none">
+    <!-- Splash Screen for initial load -->
+    <div id="splash-screen" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-16 w-16 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-xl font-semibold text-gray-700">Loading...</p>
+        </div>
+    </div>
+    
+    <div id="login-view" class="hidden max-w-md w-full p-8 flex-col items-center space-y-6 bg-white shadow-xl rounded-lg border-2 border-gray-200">
+        <h2 class="text-4xl font-extrabold text-center branding-text-primary">Clippable</h2>
+        <form id="login-form" class="space-y-6 w-full">
+            <div>
+                <label for="email" class="sr-only">Email address</label>
+                <input id="login-email" name="email" type="email" autocomplete="email" required class="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-xl focus:outline-none focus:ring-red-500 focus:border-red-500 text-lg" placeholder="Email address">
+            </div>
+            <div>
+                <label for="password" class="sr-only">Password</label>
+                <input id="login-password" name="password" type="password" autocomplete="current-password" required class="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-xl focus:outline-none focus:ring-red-500 focus:border-red-500 text-lg" placeholder="Password">
+            </div>
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-lg font-medium rounded-xl text-white branding-primary hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Sign in
+                </button>
+            </div>
+        </form>
+        <p class="mt-2 text-center text-sm text-gray-600">
+            For a new account, just sign in with a new email and password.
+        </p>
+    </div>
+
+    <div id="main-app-view" class="hidden w-full h-dvh flex-col shadow-2xl">
+        <header class="branding-primary text-white p-4 flex justify-between items-center shadow-lg">
+            <button id="toggle-sidebar-btn" class="text-white text-2xl md:hidden">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <h1 id="app-logo" class="text-3xl font-extrabold flex-grow text-center md:text-left cursor-pointer">Clippable</h1>
+            <button id="new-clip-btn" class="branding-secondary text-white py-2 px-4 rounded-md font-medium flex items-center gap-2 transition-transform duration-200 hover:scale-105 shadow-md">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden md:inline">New Clip</span>
+            </button>
+        </header>
+
+        <div class="flex-grow flex flex-col md:flex-row bg-white relative">
+            <aside id="sidebar" class="bg-gray-200 p-6 flex flex-col shrink-0 w-full md:w-1/4 absolute md:relative top-0 left-0 h-full z-20 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-gray-700">Clip History</h2>
+                    <button id="add-folder-btn" class="text-gray-700 hover:text-red-600 transition-colors duration-200 text-xl">
+                        <i class="fa-solid fa-folder-plus"></i>
+                    </button>
+                </div>
+                <div class="relative mb-4">
+                    <input id="search-input" type="text" placeholder="Search clips..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div id="clips-history" class="flex-grow overflow-y-auto space-y-4">
+                </div>
+                <hr class="my-4 border-gray-400">
+                <div class="mt-auto">
+                    <button id="logout-btn" class="w-full text-center text-sm text-gray-600 hover:text-red-600 font-semibold py-2 px-4 rounded-md transition-colors">
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            <main class="flex-grow p-6 bg-gray-100 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 id="main-title" class="text-2xl font-semibold text-gray-700">Paste or Create a Clip</h2>
+                    <div id="action-buttons" class="space-x-2">
+                    </div>
+                </div>
+                <div id="title-container" class="mb-4 hidden">
+                    <label for="title-area" class="text-sm font-medium text-gray-700 mb-1">Title:</label>
+                    <input id="title-area" class="p-3 border border-gray-300 shadow-inner resize-none focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500 text-lg w-full" placeholder="Automatically generated title..." />
+                </div>
+
+                <label for="paste-area" class="text-sm font-medium text-gray-700 mb-1">Content:</label>
+                <textarea id="paste-area" class="h-48 p-4 border border-gray-300 shadow-inner resize-none focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500 text-lg mb-4" placeholder="Paste your text here..."></textarea>
+                
+                <label for="folder-select" class="text-sm font-medium text-gray-700 mb-2">Select Folder:</label>
+                <select id="folder-select" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-red-500">
+                </select>
+
+                <button id="save-btn" class="branding-primary text-white py-3 px-6 rounded-md font-medium flex-none transition-transform duration-200 hover:scale-105 shadow-md self-center min-w-48 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span id="save-btn-text">Save Clip</span>
+                </button>
+                
+                <div id="delete-clip-container" class="mt-8 pt-4 hidden">
+                    <hr class="border-gray-400 mb-4">
+                    <button id="delete-clip-btn" class="w-full text-center text-sm text-gray-600 hover:text-red-600 font-semibold py-2 px-4 rounded-md transition-colors">
+                        Delete
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="modal-container" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full justify-center items-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4"></h3>
+            <div id="modal-message" class="text-gray-700 mb-4"></div>
+            <div class="flex justify-end space-x-4">
+                <button id="modal-cancel-btn" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
+                    Cancel
+                </button>
+                <button id="modal-confirm-btn" class="px-4 py-2 rounded-md text-white branding-primary hover:bg-red-700 transition-colors"></button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, doc, setDoc, deleteDoc, writeBatch, where, updateDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+        class AuthService {
+            constructor(app, db) {
+                this.auth = getAuth(app);
+                this.db = db;
+                this.user = null;
+            }
+
+            signIn(email, password) {
+                signInWithEmailAndPassword(this.auth, email, password).catch(error => {
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                        createUserWithEmailAndPassword(this.auth, email, password);
+                    } else {
+                        console.error("Authentication Error:", error);
+                    }
+                });
+            }
+
+            signOut() {
+                signOut(this.auth);
+            }
+
+            onAuthChange(callback) {
+                onAuthStateChanged(this.auth, (user) => {
+                    this.user = user;
+                    callback(user);
+                });
+            }
+
+            getCurrentUser() {
+                return this.user;
+            }
+        }
+
+        class FirestoreService {
+            constructor(db) {
+                this.db = db;
+            }
+
+            getClips(userId) {
+                const clipsRef = collection(this.db, 'users', userId, 'clips');
+                return query(clipsRef, orderBy('timestamp', 'desc'));
+            }
+
+            getFolders(userId) {
+                const foldersRef = collection(this.db, 'users', userId, 'folders');
+                return query(foldersRef, orderBy('name', 'asc'));
+            }
+
+            saveClip(userId, clipData) {
+                const clipsRef = collection(this.db, 'users', userId, 'clips');
+                return addDoc(clipsRef, { ...clipData, timestamp: serverTimestamp() });
+            }
+
+            updateClip(userId, clipId, clipData) {
+                return updateDoc(doc(this.db, 'users', userId, 'clips', clipId), clipData);
+            }
+
+            deleteClip(userId, clipId) {
+                return deleteDoc(doc(this.db, 'users', userId, 'clips', clipId));
+            }
+
+            createDefaultFolder(userId) {
+                const foldersRef = collection(this.db, 'users', userId, 'folders');
+                setDoc(doc(foldersRef, 'default_clips'), { name: 'Clips', isExpanded: true });
+            }
+
+            createNewFolder(userId, folderName) {
+                const foldersRef = collection(this.db, 'users', userId, 'folders');
+                addDoc(foldersRef, { name: folderName, isExpanded: false });
+            }
+
+            deleteFolder(userId, folderId) {
+                const batch = writeBatch(this.db);
+                const clipsInFolderQuery = query(collection(this.db, 'users', userId, 'clips'), where('folderId', '==', folderId));
+                getDocs(clipsInFolderQuery).then(clipsSnapshot => {
+                    clipsSnapshot.forEach(clipDoc => {
+                        batch.update(clipDoc.ref, { folderId: 'default_clips' });
+                    });
+                    const folderDocRef = doc(this.db, 'users', userId, 'folders', folderId);
+                    batch.delete(folderDocRef);
+                    batch.commit();
+                });
+            }
+            
+            updateFolderState(userId, folderId, isExpanded) {
+                updateDoc(doc(this.db, 'users', userId, 'folders', folderId), { isExpanded });
+            }
+        }
+
+        class UIManager {
+            constructor(app) {
+                this.splashScreen = document.getElementById('splash-screen');
+                this.loginView = document.getElementById('login-view');
+                this.mainAppView = document.getElementById('main-app-view');
+                this.historyList = document.getElementById('clips-history');
+                this.titleContainer = document.getElementById('title-container');
+                this.titleArea = document.getElementById('title-area');
+                this.pasteArea = document.getElementById('paste-area');
+                this.saveBtn = document.getElementById('save-btn');
+                this.saveBtnText = document.getElementById('save-btn-text');
+                this.folderSelect = document.getElementById('folder-select');
+                this.searchInput = document.getElementById('search-input');
+                this.sidebar = document.getElementById('sidebar');
+                this.actionButtonsContainer = document.getElementById('action-buttons');
+                this.modalContainer = document.getElementById('modal-container');
+                this.modalTitle = document.getElementById('modal-title');
+                this.modalMessage = document.getElementById('modal-message');
+                this.modalConfirmBtn = document.getElementById('modal-confirm-btn');
+                this.modalCancelBtn = document.getElementById('modal-cancel-btn');
+                this.mainTitle = document.getElementById('main-title');
+                this.deleteClipContainer = document.getElementById('delete-clip-container');
+                this.app = app;
+            }
+
+            hideSplashScreen() {
+                this.splashScreen.classList.add('hidden');
+            }
+
+            showLoginView() {
+                this.loginView.classList.remove('hidden');
+                this.loginView.classList.add('flex');
+                this.mainAppView.classList.add('hidden');
+            }
+
+            showMainAppView() {
+                this.mainAppView.classList.remove('hidden');
+                this.mainAppView.classList.add('flex');
+                this.loginView.classList.add('hidden');
+                this.pasteArea.focus();
+                this.updateMainContentUI();
+            }
+
+            showModal(title, message, confirmText, confirmCallback) {
+                this.modalTitle.textContent = title;
+                this.modalMessage.innerHTML = message;
+                this.modalConfirmBtn.textContent = confirmText;
+                this.modalContainer.classList.remove('hidden');
+                this.modalContainer.classList.add('flex');
+                this.modalConfirmBtn.onclick = confirmCallback;
+            }
+        
+            hideModal() {
+                this.modalContainer.classList.remove('flex');
+                this.modalContainer.classList.add('hidden');
+                this.modalConfirmBtn.onclick = null;
+            }
+
+            openSidebar() {
+                this.sidebar.classList.remove('-translate-x-full');
+            }
+
+            closeSidebar() {
+                this.sidebar.classList.add('-translate-x-full');
+            }
+
+            renderHistory(allClips, allFolders) {
+                const searchTerm = this.searchInput.value.toLowerCase();
+                const filteredClips = allClips.filter(clip => {
+                    const clipTitle = clip.title || '';
+                    return clip.content.toLowerCase().includes(searchTerm) || clipTitle.toLowerCase().includes(searchTerm);
+                });
+            
+                const groupedClips = filteredClips.reduce((acc, clip) => {
+                    if (!acc[clip.folderId]) {
+                        acc[clip.folderId] = [];
+                    }
+                    acc[clip.folderId].push(clip);
+                    return acc;
+                }, {});
+
+                this.historyList.innerHTML = '';
+            
+                allFolders.forEach(folder => {
+                    const folderElement = this.createFolderElement(folder, groupedClips);
+                    this.historyList.appendChild(folderElement);
+                });
+                this.updateMainContentUI();
+            }
+
+            populateFolderDropdown(folders) {
+                this.folderSelect.innerHTML = '';
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    this.folderSelect.appendChild(option);
+                });
+            }
+
+            createClipElement(clip) {
+                const clipElement = document.createElement('div');
+                clipElement.className = 'relative group';
+                
+                const clipItem = document.createElement('div');
+                clipItem.className = 'p-3 pl-6 border-b border-gray-200 cursor-pointer transition-colors hover:bg-gray-100';
+                
+                const titleParagraph = document.createElement('p');
+                titleParagraph.className = 'text-sm font-semibold text-gray-800 break-words whitespace-pre-wrap';
+                titleParagraph.textContent = clip.title || 'Untitled Clip';
+
+                const timestamp = clip.timestamp?.toDate ? clip.timestamp.toDate() : new Date();
+                const formattedTime = timestamp.toLocaleString('en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hour12: true
+                });
+                
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'text-xs text-gray-500 mt-1 block';
+                timeSpan.textContent = formattedTime;
+
+                clipItem.appendChild(titleParagraph);
+                clipItem.appendChild(timeSpan);
+                
+                clipItem.addEventListener('click', () => this.app.loadClip(clip));
+                
+                clipElement.append(clipItem);
+                return clipElement;
+            }
+            
+            createFolderElement(folder, groupedClips) {
+                const folderElement = document.createElement('div');
+                folderElement.className = 'folder-container';
+                
+                const folderHeaderWrapper = document.createElement('div');
+                folderHeaderWrapper.className = 'relative group';
+
+                const folderHeader = document.createElement('div');
+                folderHeader.className = 'p-4 flex items-center space-x-3 bg-white rounded-lg shadow-sm mb-1 transition-colors hover:bg-gray-100 cursor-pointer user-select-none';
+                
+                const folderIcon = document.createElement('i');
+                folderIcon.className = 'fa-solid fa-folder text-xl branding-text-secondary';
+                
+                const folderName = document.createElement('span');
+                folderName.className = 'text-lg font-semibold text-gray-800';
+                folderName.textContent = folder.name;
+                
+                const toggleIcon = document.createElement('i');
+                toggleIcon.className = 'fas fa-chevron-down text-gray-500 ml-auto transition-transform duration-200 transform';
+                
+                folderHeader.append(folderIcon, folderName, toggleIcon);
+
+                const folderDeleteBtn = document.createElement('button');
+                folderDeleteBtn.className = 'absolute top-1/2 -translate-y-1/2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors z-10';
+
+                if (folder.id === 'default_clips') {
+                    folderDeleteBtn.classList.add('invisible', 'pointer-events-none');
+                } else {
+                    folderDeleteBtn.addEventListener('click', e => {
+                        e.stopPropagation();
+                        this.showModal('Delete Folder', `Are you sure you want to delete the folder "${folder.name}"? All clips inside will be moved to the "Clips" folder.`, 'Delete Folder', () => this.app.deleteFolder(folder.id));
+                    });
+                }
+                
+                folderDeleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+
+                folderHeaderWrapper.append(folderHeader, folderDeleteBtn);
+
+                const clipContainer = document.createElement('div');
+                clipContainer.className = 'overflow-hidden transition-all duration-300 ease-in-out';
+                
+                if (groupedClips[folder.id]) {
+                    groupedClips[folder.id].forEach(clip => {
+                        clipContainer.appendChild(this.createClipElement(clip));
+                    });
+                }
+
+                const isExpanded = folder.isExpanded ?? true;
+                if (!isExpanded) {
+                    clipContainer.classList.add('hidden');
+                    toggleIcon.style.transform = 'rotate(-90deg)';
+                }
+
+                folderHeader.addEventListener('click', () => {
+                    const newState = !isExpanded;
+                    this.app.toggleFolderState(folder.id, newState);
+                });
+                
+                folderElement.append(folderHeaderWrapper, clipContainer);
+                return folderElement;
+            }
+
+            updateMainContentUI(currentClipId) {
+                if (currentClipId) {
+                    this.mainTitle.textContent = 'Edit Clip';
+                    this.titleContainer.classList.remove('hidden');
+                    this.deleteClipContainer.classList.remove('hidden');
+                    this.saveBtnText.textContent = 'Update Clip';
+                } else {
+                    this.mainTitle.textContent = 'Paste or Create a Clip';
+                    this.titleContainer.classList.add('hidden');
+                    this.deleteClipContainer.classList.add('hidden');
+                    this.saveBtnText.textContent = 'Save Clip';
+                }
+                
+                this.actionButtonsContainer.innerHTML = '';
+                if (this.pasteArea.value.trim().length > 0) {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.id = 'copy-btn';
+                    copyBtn.className = 'text-xl px-6 py-3 rounded-md branding-secondary text-white hover:bg-yellow-500 transition-colors shadow-md';
+                    copyBtn.innerHTML = '<i class="fa-solid fa-clipboard"></i>';
+                    copyBtn.addEventListener('click', () => this.app.copyText());
+                    this.actionButtonsContainer.appendChild(copyBtn);
+                } else {
+                    const pasteBtn = document.createElement('button');
+                    pasteBtn.id = 'paste-btn';
+                    pasteBtn.className = 'text-xl px-6 py-3 rounded-md text-white branding-primary hover:bg-red-700 transition-colors shadow-md';
+                    pasteBtn.innerHTML = '<i class="fa-solid fa-paste"></i>';
+                    pasteBtn.addEventListener('click', () => this.app.pasteText());
+                    this.actionButtonsContainer.appendChild(pasteBtn);
+                }
+            }
+
+            animateSaveButton() {
+                this.saveBtn.classList.add('animate-pop');
+                setTimeout(() => {
+                    this.saveBtn.classList.remove('animate-pop');
+                }, 300);
+            }
+        }
+
+        class Utilities {
+            static generateTitle(content) {
+                const words = content.trim().split(/\s+/);
+                const titleWords = words.slice(0, 5).join(' ');
+                return titleWords.length > 0 ? titleWords : 'Untitled Clip';
+            }
+        }
+
+        class App {
+            constructor() {
+                this.firebaseConfig = {
+                    apiKey: "AIzaSyDx8o9wSXsQV2y-MzWYJrXcKZm28t2wApQ",
+                    authDomain: "clippable-app.firebaseapp.com",
+                    projectId: "clippable-app",
+                    storageBucket: "clippable-app.firebasestorage.app",
+                    messagingSenderId: "528668605060",
+                    appId: "1:528668605060:web:a4f0f51a0afc2acf9120d1",
+                    measurementId: "G-NBWJH9HFJD"
+                };
+                this.app = initializeApp(this.firebaseConfig);
+                this.db = getFirestore(this.app);
+                
+                this.authService = new AuthService(this.app, this.db);
+                this.firestoreService = new FirestoreService(this.db);
+                this.uiManager = new UIManager(this);
+
+                this.loginForm = document.getElementById('login-form');
+                this.logoutBtn = document.getElementById('logout-btn');
+                this.newClipBtn = document.getElementById('new-clip-btn');
+                this.saveBtn = document.getElementById('save-btn');
+                this.searchInput = document.getElementById('search-input');
+                this.addFolderBtn = document.getElementById('add-folder-btn');
+                this.toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+                this.appLogo = document.getElementById('app-logo');
+                this.modalCancelBtn = document.getElementById('modal-cancel-btn');
+                this.deleteClipBtn = document.getElementById('delete-clip-btn');
+
+                this.allClips = [];
+                this.allFolders = [];
+                this.currentClipId = null;
+                this.unsubscribeFromClips = null;
+                this.unsubscribeFromFolders = null;
+                this.pendingClipId = null;
+
+                this.initialize();
+            }
+
+            initialize() {
+                this.setupEventListeners();
+                this.authService.onAuthChange(this.handleAuthStateChange.bind(this));
+                if (window.innerWidth >= 768) {
+                    this.uiManager.openSidebar();
+                }
+            }
+
+            setupEventListeners() {
+                this.loginForm.addEventListener('submit', this.handleLogin.bind(this));
+                this.logoutBtn.addEventListener('click', this.handleLogout.bind(this));
+                this.newClipBtn.addEventListener('click', this.startNewClip.bind(this));
+                this.uiManager.pasteArea.addEventListener('input', () => this.uiManager.updateMainContentUI(this.currentClipId));
+                this.saveBtn.addEventListener('click', this.handleSaveClip.bind(this));
+                this.searchInput.addEventListener('input', this.renderUI.bind(this));
+                this.addFolderBtn.addEventListener('click', this.showNewFolderModal.bind(this));
+                this.modalCancelBtn.addEventListener('click', () => this.uiManager.hideModal());
+                this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
+                this.appLogo.addEventListener('click', this.startNewClip.bind(this));
+                this.deleteClipBtn.addEventListener('click', () => this.showDeleteClipModal());
+            }
+
+            handleAuthStateChange(user) {
+                if (user) {
+                    this.uiManager.showMainAppView();
+                    this.startListeningToData(user.uid);
+                    this.handleUrlParams(user.uid);
+                } else {
+                    this.uiManager.showLoginView();
+                }
+                this.uiManager.hideSplashScreen();
+            }
+
+            handleUrlParams(userId) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const clipContent = urlParams.get('clip');
+                if (clipContent) {
+                    const decodedContent = decodeURIComponent(clipContent);
+                    const generatedTitle = Utilities.generateTitle(decodedContent);
+                    const clipData = {
+                        content: decodedContent,
+                        title: generatedTitle,
+                        folderId: 'default_clips'
+                    };
+                    this.firestoreService.saveClip(userId, clipData).then(docRef => {
+                        this.pendingClipId = docRef.id;
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    });
+                }
+            }
+
+            handleLogin(event) {
+                event.preventDefault();
+                const email = event.target.elements['login-email'].value;
+                const password = event.target.elements['login-password'].value;
+                this.authService.signIn(email, password);
+            }
+
+            handleLogout() {
+                this.authService.signOut();
+            }
+
+            startListeningToData(userId) {
+                this.unsubscribeFromFolders = onSnapshot(this.firestoreService.getFolders(userId), snapshot => {
+                    this.allFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (this.allFolders.length === 0) {
+                        this.firestoreService.createDefaultFolder(userId);
+                    } else {
+                        this.uiManager.populateFolderDropdown(this.allFolders);
+                    }
+                    this.renderUI();
+
+                });
+
+                this.unsubscribeFromClips = onSnapshot(this.firestoreService.getClips(userId), snapshot => {
+                    this.allClips = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.renderUI();
+
+                    if (this.pendingClipId) {
+                        const newClip = this.allClips.find(clip => clip.id === this.pendingClipId);
+                        if (newClip) {
+                            this.loadClip(newClip);
+                            this.pendingClipId = null;
+                        }
+                    }
+                });
+            }
+
+            stopListeningToData() {
+                if (this.unsubscribeFromClips) {
+                    this.unsubscribeFromClips();
+                    this.unsubscribeFromClips = null;
+                }
+                if (this.unsubscribeFromFolders) {
+                    this.unsubscribeFromFolders();
+                    this.unsubscribeFromFolders = null;
+                }
+            }
+
+            renderUI() {
+                this.uiManager.renderHistory(this.allClips, this.allFolders);
+            }
+
+            handleSaveClip() {
+                const text = this.uiManager.pasteArea.value;
+                if (!text.trim()) {
+                    return;
+                }
+                const userId = this.authService.getCurrentUser()?.uid;
+                const title = Utilities.generateTitle(text);
+                const folderId = this.uiManager.folderSelect.value;
+                const clipData = { content: text, title: this.uiManager.titleArea.value || title, folderId };
+                
+                if (this.currentClipId) {
+                    this.firestoreService.updateClip(userId, this.currentClipId, clipData);
+                } else {
+                    this.firestoreService.saveClip(userId, clipData);
+                }
+                this.uiManager.animateSaveButton();
+                this.startNewClip();
+            }
+
+            showDeleteClipModal() {
+                this.uiManager.showModal('Delete Clip', 'Are you sure you want to delete this clip?', 'Delete Clip', () => this.deleteClip(this.currentClipId));
+            }
+
+            deleteClip(clipId) {
+                this.uiManager.hideModal();
+                const userId = this.authService.getCurrentUser()?.uid;
+                if (userId) {
+                    this.firestoreService.deleteClip(userId, clipId);
+                    if (this.currentClipId === clipId) {
+                        this.startNewClip();
+                    }
+                }
+            }
+
+            deleteFolder(folderId) {
+                this.uiManager.hideModal();
+                const userId = this.authService.getCurrentUser()?.uid;
+                if (userId && folderId !== 'default_clips') {
+                    this.firestoreService.deleteFolder(userId, folderId);
+                }
+            }
+
+            createNewFolder() {
+                const folderNameInput = document.getElementById('folder-name-input');
+                const folderName = folderNameInput.value.trim();
+                if (!folderName) {
+                    this.uiManager.hideModal();
+                    return;
+                }
+                const userId = this.authService.getCurrentUser()?.uid;
+                if (userId) {
+                    this.firestoreService.createNewFolder(userId, folderName)
+                        .catch(error => console.error("Error creating new folder:", error))
+                        .finally(() => this.uiManager.hideModal());
+                }
+            }
+            
+            showNewFolderModal() {
+                this.uiManager.showModal('New Folder', '<input id="folder-name-input" type="text" placeholder="Enter folder name..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 mb-4">', 'Create', () => this.createNewFolder());
+                document.getElementById('folder-name-input').focus();
+            }
+
+            toggleFolderState(folderId, newExpandedState) {
+                const userId = this.authService.getCurrentUser()?.uid;
+                if (userId) {
+                    this.firestoreService.updateFolderState(userId, folderId, newExpandedState);
+                }
+            }
+
+            loadClip(clip) {
+                this.currentClipId = clip.id;
+                this.uiManager.titleArea.value = clip.title || '';
+                this.uiManager.pasteArea.value = clip.content;
+                this.uiManager.folderSelect.value = clip.folderId;
+                if (window.innerWidth < 768) {
+                    this.uiManager.closeSidebar();
+                }
+                this.uiManager.updateMainContentUI(this.currentClipId);
+            }
+
+            startNewClip() {
+                if (window.innerWidth < 768 && !this.uiManager.sidebar.classList.contains('-translate-x-full')) {
+                    this.uiManager.closeSidebar();
+                }
+                this.uiManager.pasteArea.value = '';
+                this.uiManager.titleArea.value = '';
+                this.currentClipId = null;
+                this.uiManager.updateMainContentUI(this.currentClipId);
+            }
+
+            toggleSidebar() {
+                if (this.uiManager.sidebar.classList.contains('-translate-x-full')) {
+                    this.uiManager.openSidebar();
+                } else {
+                    this.uiManager.closeSidebar();
+                }
+            }
+
+            copyText() {
+                const textToCopy = this.uiManager.pasteArea.value;
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => {
+                        const copyBtn = document.getElementById('copy-btn');
+                        copyBtn.innerHTML = '<i class="fa-solid fa-clipboard-check"></i>';
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="fa-solid fa-clipboard"></i>';
+                        }, 2000);
+                    })
+                    .catch(err => console.error('Failed to copy text: ', err));
+            }
+            
+            pasteText() {
+                navigator.clipboard.readText()
+                    .then(text => {
+                        this.uiManager.pasteArea.value = text;
+                        const pasteBtn = document.getElementById('paste-btn');
+                        pasteBtn.innerHTML = '<i class="fa-solid fa-clipboard-check"></i>';
+                        setTimeout(() => {
+                            pasteBtn.innerHTML = '<i class="fa-solid fa-paste"></i>';
+                        }, 2000);
+                        this.uiManager.updateMainContentUI(this.currentClipId);
+                    })
+                    .catch(err => console.error('Failed to paste text: ', err));
+            }
+        }
+
+        window.onload = function() {
+            new App();
+        };
+    </script>
+</body>
+</html>
