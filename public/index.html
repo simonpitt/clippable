@@ -332,10 +332,22 @@
 
             populateFolderDropdown(folders) {
                 this.folderSelect.innerHTML = '';
-                folders.forEach(folder => {
+
+                // Find the default "Clips" folder
+                const defaultFolder = folders.find(f => f.id === 'default_clips');
+                const otherFolders = folders.filter(f => f.id !== 'default_clips');
+                
+                // Put the default folder first in a new array, then add the rest
+                const sortedFolders = [defaultFolder, ...otherFolders];
+
+                sortedFolders.forEach(folder => {
                     const option = document.createElement('option');
                     option.value = folder.id;
                     option.textContent = folder.name;
+                    // Make sure the "Clips" folder is selected by default
+                    if (folder.id === 'default_clips') {
+                        option.selected = true;
+                    }
                     this.folderSelect.appendChild(option);
                 });
             }
