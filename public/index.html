@@ -214,12 +214,29 @@
 
             createDefaultFolder(userId) {
                 const foldersRef = collection(this.db, 'users', userId, 'folders');
-                setDoc(doc(foldersRef, 'default_clips'), { name: 'Clips', isExpanded: true });
+                return setDoc(doc(foldersRef, 'default_clips'), { name: 'Clips', isExpanded: true, isDefault: true });
             }
 
             createNewFolder(userId, folderName) {
                 const foldersRef = collection(this.db, 'users', userId, 'folders');
-                return addDoc(foldersRef, { name: folderName, isExpanded: false });
+                return addDoc(foldersRef, { name: folderName, isExpanded: false, isDefault: false });
+            }
+            
+            async updateDefaultFolder(userId, newDefaultFolderId) {
+                const batch = writeBatch(this.db);
+                const foldersRef = collection(this.db, 'users', userId, 'folders');
+
+                const currentDefaultQuery = query(foldersRef, where('isDefault', '==', true));
+                const currentDefaultSnapshot = await getDocs(currentDefaultQuery);
+
+                currentDefaultSnapshot.forEach(docSnap => {
+                    batch.update(docSnap.ref, { isDefault: false });
+                });
+
+                const newDefaultFolderRef = doc(foldersRef, newDefaultFolderId);
+                batch.update(newDefaultFolderRef, { isDefault: true });
+
+                return batch.commit();
             }
 
             deleteFolder(userId, folderId) {
@@ -333,19 +350,17 @@
             populateFolderDropdown(folders) {
                 this.folderSelect.innerHTML = '';
 
-                // Find the default "Clips" folder
-                const defaultFolder = folders.find(f => f.id === 'default_clips');
-                const otherFolders = folders.filter(f => f.id !== 'default_clips');
+                // Find the default folder based on the isDefault property
+                const defaultFolder = folders.find(f => f.isDefault) || folders.find(f => f.id === 'default_clips');
+                const otherFolders = folders.filter(f => f.id !== defaultFolder.id);
                 
-                // Put the default folder first in a new array, then add the rest
-                const sortedFolders = [defaultFolder, ...otherFolders];
+                const sortedFolders = [defaultFolder, ...otherFolders.sort((a, b) => a.name.localeCompare(b.name))];
 
                 sortedFolders.forEach(folder => {
                     const option = document.createElement('option');
                     option.value = folder.id;
                     option.textContent = folder.name;
-                    // Make sure the "Clips" folder is selected by default
-                    if (folder.id === 'default_clips') {
+                    if (folder.isDefault) {
                         option.selected = true;
                     }
                     this.folderSelect.appendChild(option);
@@ -407,43 +422,56 @@
                 toggleIcon.className = 'fas fa-chevron-down text-gray-500 ml-auto transition-transform duration-200 transform';
                 
                 folderHeader.append(folderIcon, folderName, toggleIcon);
+                folderHeaderWrapper.appendChild(folderHeader);
 
-                const optionsButton = document.createElement('button');
-                optionsButton.className = 'absolute top-1/2 -translate-y-1/2 right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors z-10';
-                optionsButton.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
-
-                const dropdownMenu = document.createElement('div');
-                dropdownMenu.className = 'folder-options-menu absolute top-full right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 hidden';
-                
-                const deleteOption = document.createElement('button');
-                deleteOption.className = 'w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2';
-                
-                const deleteIcon = document.createElement('i');
-                deleteIcon.className = 'fa-solid fa-trash-can';
-                
-                const deleteText = document.createElement('span');
-                deleteText.textContent = 'Delete';
-
-                deleteOption.append(deleteIcon, deleteText);
-
-
-                if (folder.id === 'default_clips') {
-                    optionsButton.classList.add('invisible', 'pointer-events-none');
+                if (folder.isDefault) {
+                    const defaultTag = document.createElement('span');
+                    defaultTag.textContent = 'Default';
+                    defaultTag.className = 'absolute top-1/2 -translate-y-1/2 right-2 px-2 py-1 bg-gray-300 text-gray-700 text-xs font-semibold rounded-full';
+                    folderHeaderWrapper.appendChild(defaultTag);
                 } else {
+                    const optionsButton = document.createElement('button');
+                    optionsButton.className = 'absolute top-1/2 -translate-y-1/2 right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors z-10';
+                    optionsButton.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
+
+                    const dropdownMenu = document.createElement('div');
+                    dropdownMenu.className = 'folder-options-menu absolute top-full right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 hidden';
+                    
+                    const defaultOption = document.createElement('button');
+                    defaultOption.className = 'w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-2';
+                    defaultOption.innerHTML = '<i class="fa-solid fa-star"></i> <span>Make default</span>';
+
+                    const deleteOption = document.createElement('button');
+                    deleteOption.className = 'w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2';
+                    deleteOption.innerHTML = '<i class="fa-solid fa-trash-can"></i> <span>Delete</span>';
+
+                    dropdownMenu.appendChild(defaultOption);
+                    dropdownMenu.appendChild(deleteOption);
+                    
                     optionsButton.addEventListener('click', e => {
                         e.stopPropagation();
+                        document.querySelectorAll('.folder-options-menu').forEach(menu => {
+                            if (menu !== dropdownMenu) {
+                                menu.classList.add('hidden');
+                            }
+                        });
                         dropdownMenu.classList.toggle('hidden');
                     });
 
-                    deleteOption.addEventListener('click', e => {
+                    defaultOption.addEventListener('click', e => {
                         e.stopPropagation();
-                        this.showModal('Delete Folder', `Are you sure you want to delete the folder "${folder.name}"? All clips inside will be moved to the "Clips" folder.`, 'Delete', () => this.app.deleteFolder(folder.id));
+                        this.app.setDefaultFolder(folder.id);
                         dropdownMenu.classList.add('hidden');
                     });
-                }
+                    
+                    deleteOption.addEventListener('click', e => {
+                        e.stopPropagation();
+                        this.app.showModal('Delete Folder', `Are you sure you want to delete the folder "${folder.name}"? All clips inside will be moved to the "Clips" folder.`, 'Delete', () => this.app.deleteFolder(folder.id));
+                        dropdownMenu.classList.add('hidden');
+                    });
 
-                dropdownMenu.appendChild(deleteOption);
-                folderHeaderWrapper.append(folderHeader, optionsButton, dropdownMenu);
+                    folderHeaderWrapper.append(optionsButton, dropdownMenu);
+                }
 
                 const clipContainer = document.createElement('div');
                 clipContainer.className = 'overflow-hidden transition-all duration-300 ease-in-out';
@@ -575,10 +603,10 @@
                 this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
                 this.appLogo.addEventListener('click', this.startNewClip.bind(this));
                 this.deleteClipBtn.addEventListener('click', () => this.showDeleteClipModal());
-                document.addEventListener('click', () => {
-                    document.querySelectorAll('.folder-options-menu').forEach(menu => {
-                        menu.classList.add('hidden');
-                    });
+                document.addEventListener('click', (event) => {
+                    if (!event.target.closest('.folder-options-menu') && !event.target.closest('button')) {
+                        document.querySelectorAll('.folder-options-menu').forEach(menu => menu.classList.add('hidden'));
+                    }
                 });
             }
 
@@ -628,10 +656,14 @@
                     if (this.allFolders.length === 0) {
                         this.firestoreService.createDefaultFolder(userId);
                     } else {
+                        // Check if a default folder already exists. If not, set the first one to be default.
+                        const hasDefault = this.allFolders.some(f => f.isDefault);
+                        if (!hasDefault) {
+                            this.firestoreService.updateDefaultFolder(userId, this.allFolders[0].id);
+                        }
                         this.uiManager.populateFolderDropdown(this.allFolders);
                     }
                     this.renderUI();
-
                 });
 
                 this.unsubscribeFromClips = onSnapshot(this.firestoreService.getClips(userId), snapshot => {
@@ -700,8 +732,11 @@
             deleteFolder(folderId) {
                 this.uiManager.hideModal();
                 const userId = this.authService.getCurrentUser()?.uid;
-                if (userId && folderId !== 'default_clips') {
-                    this.firestoreService.deleteFolder(userId, folderId);
+                if (userId) {
+                    const folder = this.allFolders.find(f => f.id === folderId);
+                    if (folder && !folder.isDefault) {
+                        this.firestoreService.deleteFolder(userId, folderId);
+                    }
                 }
             }
 
@@ -723,6 +758,13 @@
             showNewFolderModal() {
                 this.uiManager.showModal('New Folder', '<input id="folder-name-input" type="text" placeholder="Enter folder name..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 mb-4">', 'Create', () => this.createNewFolder());
                 document.getElementById('folder-name-input').focus();
+            }
+            
+            setDefaultFolder(folderId) {
+                const userId = this.authService.getCurrentUser()?.uid;
+                if (userId) {
+                    this.firestoreService.updateDefaultFolder(userId, folderId);
+                }
             }
 
             toggleFolderState(folderId, newExpandedState) {
@@ -750,6 +792,10 @@
                 this.uiManager.pasteArea.value = '';
                 this.uiManager.titleArea.value = '';
                 this.currentClipId = null;
+                const defaultFolder = this.allFolders.find(f => f.isDefault);
+                if (defaultFolder) {
+                    this.uiManager.folderSelect.value = defaultFolder.id;
+                }
                 this.uiManager.updateMainContentUI(this.currentClipId);
             }
 
