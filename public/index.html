@@ -205,7 +205,7 @@
             }
 
             updateClip(userId, clipId, clipData) {
-                return updateDoc(doc(this.db, 'users', userId, 'clips', clipId), clipData);
+                return updateDoc(doc(this.db, 'users', userId, 'clips', clipId), { ...clipData, timestamp: serverTimestamp() });
             }
 
             deleteClip(userId, clipId) {
